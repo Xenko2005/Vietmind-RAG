@@ -40,15 +40,15 @@ Vietnamese Answer + Retrieved Sources
 
 ## Tech Stack
 
-| Component        | Technology            |
-| ---------------- | --------------------- |
-| Backend          | FastAPI               |
-| Frontend         | Streamlit             |
-| Vector Database  | ChromaDB              |
-| Embedding Model  | Sentence Transformers |
-| Local LLM        | Ollama + Qwen         |
-| Document Parsing | PyMuPDF, python-docx  |
-| Language         | Python                |
+| Component        | Technology                     |
+| ---------------- | ------------------------------ |
+| Backend          | FastAPI                        |
+| Frontend         | Streamlit                      |
+| Vector Database  | ChromaDB                       |
+| Embedding Model  | Sentence Transformers          |
+| Local LLM        | Ollama-compatible local models |
+| Document Parsing | PyMuPDF, python-docx           |
+| Language         | Python                         |
 
 ## Project Structure
 
@@ -104,7 +104,21 @@ pip install -r requirements.txt
 
 ### 4. Install and run Ollama
 
-Pull the local LLM model:
+This project uses Ollama to run a local LLM.
+By default, the project is configured to use `qwen3:4b`, but you can replace it with another local model depending on your machine's hardware.
+
+Recommended local models:
+
+| Model         | Notes                                        |
+| ------------- | -------------------------------------------- |
+| `qwen3:1.7b`  | Lightweight option for low-resource machines |
+| `qwen3:4b`    | Default model, balanced for local RAG        |
+| `llama3.2:3b` | Lightweight general-purpose model            |
+| `gemma3:4b`   | Good small model for local usage             |
+| `mistral:7b`  | Stronger model, but requires more resources  |
+| `qwen3:8b`    | Better reasoning quality, but heavier        |
+
+Pull the default model:
 
 ```bash
 ollama pull qwen3:4b
@@ -117,6 +131,24 @@ ollama serve
 ```
 
 If Ollama is already running in the background, this step can be skipped.
+
+To use another model, pull it with Ollama and update the model name in:
+
+```text
+app/llm_client.py
+```
+
+Example:
+
+```python
+model: str = "qwen3:4b"
+```
+
+Change it to another model, such as:
+
+```python
+model: str = "llama3.2:3b"
+```
 
 ## How to Run
 
