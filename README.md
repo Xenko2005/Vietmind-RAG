@@ -1,168 +1,191 @@
-\# VietMind-RAG
+# VietMind-RAG
 
+**VietMind-RAG** is a local Vietnamese Retrieval-Augmented Generation (RAG) assistant that allows users to upload documents and ask questions based on their own knowledge base.
 
+The system supports PDF, TXT, and DOCX files, retrieves relevant document chunks using semantic search, and generates Vietnamese answers with a local LLM through Ollama.
 
-VietMind-RAG is a local Vietnamese Retrieval-Augmented Generation assistant.  
+## Features
 
-It allows users to upload documents such as PDF, TXT, or DOCX files and ask questions in Vietnamese based on the uploaded content.
+* Upload PDF, TXT, and DOCX documents
+* Extract and chunk document content
+* Generate multilingual text embeddings
+* Store and search document vectors with ChromaDB
+* Retrieve relevant context for each user question
+* Generate answers using a local Ollama LLM
+* FastAPI backend with interactive API docs
+* Streamlit web interface for document upload and chat
+* Display retrieved sources for answer transparency
 
-
-
-\## Features
-
-
-
-\- Upload PDF, TXT, and DOCX documents
-
-\- Parse and chunk document content
-
-\- Generate multilingual embeddings
-
-\- Store vectors using ChromaDB
-
-\- Retrieve relevant document chunks
-
-\- Generate answers using a local Ollama LLM
-
-\- FastAPI backend
-
-\- Streamlit chat interface
-
-
-
-\## Tech Stack
-
-
-
-\- Python
-
-\- FastAPI
-
-\- Streamlit
-
-\- ChromaDB
-
-\- Sentence Transformers
-
-\- Ollama
-
-\- Qwen3
-
-
-
-\## Project Structure
-
-
+## Demo Flow
 
 ```text
+Upload Document
+      ↓
+Text Extraction
+      ↓
+Chunking
+      ↓
+Embedding
+      ↓
+ChromaDB Vector Store
+      ↓
+User Question
+      ↓
+Semantic Retrieval
+      ↓
+Ollama LLM
+      ↓
+Vietnamese Answer + Retrieved Sources
+```
 
+## Tech Stack
+
+| Component        | Technology            |
+| ---------------- | --------------------- |
+| Backend          | FastAPI               |
+| Frontend         | Streamlit             |
+| Vector Database  | ChromaDB              |
+| Embedding Model  | Sentence Transformers |
+| Local LLM        | Ollama + Qwen         |
+| Document Parsing | PyMuPDF, python-docx  |
+| Language         | Python                |
+
+## Project Structure
+
+```text
 vietmind-rag/
-
 ├── app/
-
 │   ├── main.py
-
-│   ├── document\_loader.py
-
+│   ├── document_loader.py
 │   ├── chunker.py
-
 │   ├── embedder.py
-
-│   ├── vector\_store.py
-
-│   ├── llm\_client.py
-
-│   └── rag\_pipeline.py
-
+│   ├── vector_store.py
+│   ├── llm_client.py
+│   └── rag_pipeline.py
+│
 ├── ui/
-
-│   └── streamlit\_app.py
-
+│   └── streamlit_app.py
+│
 ├── data/
-
 │   ├── uploads/
-
-│   └── chroma\_db/
-
+│   └── chroma_db/
+│
 ├── requirements.txt
-
 ├── README.md
-
 └── .gitignore
+```
 
+## Installation
 
+### 1. Clone the repository
 
-How to Run
+```bash
+git clone https://github.com/Xenko2005/Vietmind-RAG.git
+cd Vietmind-RAG
+```
 
-1\. Create virtual environment
+### 2. Create a virtual environment
 
+```bash
 python -m venv .venv
+```
 
-.venv\\Scripts\\activate
+Activate the environment on Windows:
 
-2\. Install dependencies
+```bash
+.venv\Scripts\activate
+```
 
+### 3. Install dependencies
+
+```bash
 pip install -r requirements.txt
+```
 
-3\. Pull Ollama model
+### 4. Install and run Ollama
 
+Pull the local LLM model:
+
+```bash
 ollama pull qwen3:4b
+```
 
-4\. Run FastAPI backend
+Make sure Ollama is running:
 
+```bash
+ollama serve
+```
+
+If Ollama is already running in the background, this step can be skipped.
+
+## How to Run
+
+### 1. Start FastAPI backend
+
+```bash
 uvicorn app.main:app --reload
+```
 
+Open the API documentation:
 
-
-Backend docs:
-
-
-
+```text
 http://localhost:8000/docs
+```
 
-5\. Run Streamlit frontend
+### 2. Start Streamlit frontend
 
-python -m streamlit run ui/streamlit\_app.py
+Open a new terminal and run:
 
+```bash
+python -m streamlit run ui/streamlit_app.py
+```
 
+Open the web app:
 
-Frontend:
-
-
-
+```text
 http://localhost:8501
+```
 
-Current Version
+## How to Use
 
+1. Start the FastAPI backend.
+2. Start the Streamlit frontend.
+3. Upload a PDF, TXT, or DOCX document.
+4. Wait for the document to be indexed.
+5. Ask questions in Vietnamese.
+6. View the answer and retrieved document sources.
 
+Example questions:
 
-Version: v0.1.0
+```text
+Tài liệu này nói về nội dung gì?
+```
 
+```text
+Hãy tóm tắt các ý chính trong tài liệu.
+```
 
+```text
+Phương pháp được đề cập trong tài liệu là gì?
+```
 
-This is the first MVP version of VietMind-RAG.
+## Current Version
 
+**Version:** `v0.1.0`
 
+This is the first MVP version of VietMind-RAG. It includes document upload, text chunking, vector storage, semantic retrieval, local LLM answering, FastAPI backend, and Streamlit UI.
 
+## Roadmap
 
+* [ ] Improve citation formatting
+* [ ] Add document management features
+* [ ] Prevent duplicate indexing
+* [ ] Add retrieval evaluation metrics
+* [ ] Add hybrid search with BM25 and vector search
+* [ ] Add reranking for better retrieval quality
+* [ ] Add Docker support
+* [ ] Add demo screenshots and video
 
-\---
+## Author
 
-
-
-\# 4. Push lên GitHub
-
-
-
-Trong thư mục project, chạy:
-
-
-
-```bat
-
-git init
-
-git add .
-
-git commit -m "Initial commit: VietMind-RAG MVP v0.1.0"
-
+Developed by **Xenko2005** as a personal AI/NLP portfolio project.
