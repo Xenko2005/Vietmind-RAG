@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VietMind-RAG</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+
+<body data-theme="dark">
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-box">🧠</div>
+                <div>
+                    <h1>VietMind-RAG</h1>
+                    <p>Local Vietnamese Assistant</p>
+                </div>
+            </div>
+
+            <button id="newChatBtn" class="new-chat-btn">
+                <span>＋</span>
+                New chat
+            </button>
+
+            <div class="sidebar-section">
+                <div class="section-title">Appearance</div>
+
+                <label class="theme-row">
+                    <span>Dark mode</span>
+                    <input id="themeToggle" type="checkbox" />
+                    <span class="switch"></span>
+                </label>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Local LLM Model</div>
+
+                <div class="model-row">
+                    <select id="modelSelect" class="select-input">
+                        <option value="">Loading models...</option>
+                    </select>
+
+                    <button id="refreshModelsBtn" class="icon-btn" title="Refresh models">
+                        ↻
+                    </button>
+                </div>
+
+                <p class="hint">
+                    Chọn model Ollama local đã được pull trên máy.
+                </p>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Retrieval</div>
+
+                <div class="range-header">
+                    <span>Top K</span>
+                    <strong id="topKValue">5</strong>
+                </div>
+
+                <input id="topKSlider" type="range" min="1" max="10" value="5" />
+                <p class="hint">Số đoạn tài liệu được truy xuất cho mỗi câu hỏi.</p>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Upload document</div>
+
+                <label class="upload-box" for="fileInput">
+                    <span class="upload-icon">📄</span>
+                    <span id="fileLabel">Chọn PDF, TXT hoặc DOCX</span>
+                </label>
+
+                <input id="fileInput" type="file" accept=".pdf,.txt,.docx" hidden />
+
+                <button id="uploadBtn" class="secondary-btn" disabled>
+                    Index document
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Knowledge Base</div>
+
+                <div class="kb-stats">
+                    <div class="stat-card">
+                        <span>Files</span>
+                        <strong id="docCount">0</strong>
+                    </div>
+
+                    <div class="stat-card">
+                        <span>Chunks</span>
+                        <strong id="chunkCount">0</strong>
+                    </div>
+                </div>
+
+                <div id="documentsList" class="documents-list"></div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button id="resetBtn" class="danger-btn">
+                    Reset knowledge base
+                </button>
+
+                <p class="footer-note">
+                    Backend: FastAPI · LLM: Ollama · DB: Chroma
+                </p>
+            </div>
+        </aside>
+
+        <main class="chat-main">
+            <header class="topbar">
+                <div>
+                    <h2>VietMind-RAG</h2>
+                    <p>Chat with your Vietnamese documents</p>
+                </div>
+
+                <div class="status-pill">
+                    <span class="status-dot"></span>
+                    Local RAG
+                </div>
+            </header>
+
+            <section id="chatArea" class="chat-area">
+                <div id="emptyState" class="empty-state">
+                    <div class="empty-logo">AI</div>
+                    <h2>Hôm nay bạn muốn hỏi tài liệu gì?</h2>
+                    <p>
+                        Upload tài liệu ở sidebar, sau đó hỏi trực tiếp.
+                        Hệ thống sẽ truy xuất nội dung liên quan và trả lời kèm nguồn.
+                    </p>
+
+                    <div class="prompt-grid">
+                        <button class="prompt-card" data-question="Hãy tóm tắt nội dung chính của tài liệu.">
+                            <strong>Tóm tắt tài liệu</strong>
+                            <span>Tạo bản tóm tắt ngắn gọn, dễ hiểu.</span>
+                        </button>
+
+                        <button class="prompt-card" data-question="Các ý chính quan trọng nhất trong tài liệu là gì?">
+                            <strong>Ý chính quan trọng</strong>
+                            <span>Trích xuất các luận điểm chính.</span>
+                        </button>
+
+                        <button class="prompt-card" data-question="Hãy giải thích nội dung này bằng ngôn ngữ dễ hiểu.">
+                            <strong>Giải thích dễ hiểu</strong>
+                            <span>Phù hợp khi đọc paper hoặc tài liệu khó.</span>
+                        </button>
+
+                        <button class="prompt-card" data-question="Tài liệu có nhắc đến phương pháp hoặc quy trình nào?">
+                            <strong>Phương pháp</strong>
+                            <span>Tìm method, pipeline hoặc workflow.</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="messages" class="messages"></div>
+            </section>
+
+            <footer class="composer-wrapper">
+                <div class="composer">
+                    <textarea
+                        id="messageInput"
+                        rows="1"
+                        placeholder="Nhắn tin cho VietMind-RAG..."
+                    ></textarea>
+
+                    <button id="sendBtn" class="send-btn" aria-label="Send message">
+                        ➤
+                    </button>
+                </div>
+
+                <p class="composer-note">
+                    VietMind-RAG chỉ trả lời tốt khi tài liệu đã được index vào Knowledge Base.
+                </p>
+            </footer>
+        </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

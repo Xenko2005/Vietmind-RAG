@@ -1,7 +1,7 @@
 def chunk_text(
     pages: list[dict],
     chunk_size: int = 800,
-    overlap: int = 150
+    overlap: int = 150,
 ) -> list[dict]:
     chunks = []
 
@@ -19,7 +19,7 @@ def chunk_text(
                     "text": chunk,
                     "source": page["source"],
                     "page": page["page"],
-                    "chunk_id": chunk_id
+                    "chunk_id": chunk_id,
                 })
 
             start += chunk_size - overlap

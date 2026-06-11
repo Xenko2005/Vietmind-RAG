@@ -6,20 +6,21 @@ class E5Embedder:
         self.model = SentenceTransformer(model_name)
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        # E5 khuyến nghị thêm prefix "passage:" cho documents
         inputs = [f"passage: {text}" for text in texts]
+
         embeddings = self.model.encode(
             inputs,
             normalize_embeddings=True,
-            convert_to_numpy=True
+            convert_to_numpy=True,
         )
+
         return embeddings.tolist()
 
     def embed_query(self, query: str) -> list[float]:
-        # E5 khuyến nghị thêm prefix "query:" cho câu hỏi
         embedding = self.model.encode(
             f"query: {query}",
             normalize_embeddings=True,
-            convert_to_numpy=True
+            convert_to_numpy=True,
         )
+
         return embedding.tolist()

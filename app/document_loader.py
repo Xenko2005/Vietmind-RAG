@@ -1,5 +1,5 @@
 import os
-import fitz  # PyMuPDF
+import fitz
 from docx import Document
 
 
@@ -9,24 +9,26 @@ def load_pdf(file_path: str) -> list[dict]:
 
     for page_idx, page in enumerate(doc):
         text = page.get_text("text").strip()
+
         if text:
             pages.append({
                 "text": text,
                 "page": page_idx + 1,
-                "source": os.path.basename(file_path)
+                "source": os.path.basename(file_path),
             })
 
+    doc.close()
     return pages
 
 
 def load_txt(file_path: str) -> list[dict]:
-    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-        text = f.read().strip()
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as file:
+        text = file.read().strip()
 
     return [{
         "text": text,
         "page": 1,
-        "source": os.path.basename(file_path)
+        "source": os.path.basename(file_path),
     }]
 
 
@@ -36,13 +38,14 @@ def load_docx(file_path: str) -> list[dict]:
 
     for para in doc.paragraphs:
         text = para.text.strip()
+
         if text:
             paragraphs.append(text)
 
     return [{
         "text": "\n".join(paragraphs),
         "page": 1,
-        "source": os.path.basename(file_path)
+        "source": os.path.basename(file_path),
     }]
 
 
