@@ -93,7 +93,23 @@
                     </div>
                 </div>
 
+                <p class="hint">
+                    Click vào một tài liệu để chọn làm phạm vi hỏi đáp/evaluation.
+                </p>
+
                 <div id="documentsList" class="documents-list"></div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Evaluation</div>
+
+                <button id="runEvalBtn" class="secondary-btn" disabled>
+                    Run retrieval evaluation
+                </button>
+
+                <p class="hint">
+                    Evaluation sẽ chạy trên tài liệu đang được chọn.
+                </p>
             </div>
 
             <div class="sidebar-footer">
@@ -111,7 +127,7 @@
             <header class="topbar">
                 <div>
                     <h2>VietMind-RAG</h2>
-                    <p>Chat with your Vietnamese documents</p>
+                    <p id="selectedDocLabel">Chưa chọn tài liệu</p>
                 </div>
 
                 <div class="status-pill">
@@ -121,12 +137,14 @@
             </header>
 
             <section id="chatArea" class="chat-area">
+                <div id="evaluationPanel" class="evaluation-panel hidden"></div>
+
                 <div id="emptyState" class="empty-state">
                     <div class="empty-logo">AI</div>
                     <h2>Hôm nay bạn muốn hỏi tài liệu gì?</h2>
                     <p>
-                        Upload tài liệu ở sidebar, sau đó hỏi trực tiếp.
-                        Hệ thống sẽ truy xuất nội dung liên quan và trả lời kèm nguồn.
+                        Upload tài liệu ở sidebar, chọn một tài liệu trong Knowledge Base,
+                        sau đó hỏi trực tiếp. Hệ thống sẽ truy xuất trong tài liệu đang chọn.
                     </p>
 
                     <div class="prompt-grid">
@@ -169,7 +187,7 @@
                 </div>
 
                 <p class="composer-note">
-                    VietMind-RAG chỉ trả lời tốt khi tài liệu đã được index vào Knowledge Base.
+                    Đang hỏi trong tài liệu được chọn ở Knowledge Base.
                 </p>
             </footer>
         </main>

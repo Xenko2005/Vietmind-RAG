@@ -54,26 +54,47 @@ class RAGPipeline:
 
         return "\n".join(lines)
 
-    def ask(self, question: str, top_k: int = 5) -> dict:
+    def ask(
+        self,
+        question: str,
+        top_k: int = 5,
+        source_filter: str | None = None,
+    ) -> dict:
         retrieved_chunks = self.vector_store.search(
             query=question,
             top_k=top_k,
+            source_filter=source_filter,
         )
 
         if not retrieved_chunks:
+            source_note = (
+                f" trong tài liệu `{source_filter}`"
+                if source_filter
+                else ""
+            )
+
             return {
-                "answer": "Mình chưa tìm thấy tài liệu liên quan trong knowledge base.",
+                "answer": f"Mình chưa tìm thấy nội dung liên quan{source_note} trong knowledge base.",
                 "sources_text": "Không có nguồn truy xuất.",
                 "sources": [],
             }
 
         context = self.build_context(retrieved_chunks)
 
+        selected_doc_text = (
+            f"Tài liệu đang được chọn: {source_filter}"
+            if source_filter
+            else "Không giới hạn tài liệu."
+        )
+
         prompt = f"""
 Bạn là trợ lý AI tiếng Việt cho hệ thống VietMind-RAG.
 
 NHIỆM VỤ:
 Trả lời câu hỏi của người dùng dựa trên CONTEXT được cung cấp.
+
+THÔNG TIN TRUY XUẤT:
+{selected_doc_text}
 
 QUY TẮC BẮT BUỘC:
 1. Chỉ dùng thông tin có trong CONTEXT.
@@ -110,4 +131,5 @@ CÂU TRẢ LỜI:
             "answer": final_answer,
             "sources_text": sources_text,
             "sources": retrieved_chunks,
+            "selected_source": source_filter,
         }

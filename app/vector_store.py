@@ -86,13 +86,43 @@ class VectorStore:
 
         return len(chunks)
 
-    def search(self, query: str, top_k: int = 5) -> list[dict]:
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        source_filter: str | None = None,
+    ) -> list[dict]:
         query_embedding = self.embedder.embed_query(query)
 
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-        )
+        source_filter = source_filter.strip() if source_filter else None
+
+        if source_filter in ["", "__all__", "all"]:
+            source_filter = None
+
+        try:
+            if source_filter:
+                results = self.collection.query(
+                    query_embeddings=[query_embedding],
+                    n_results=top_k,
+                    where={"source": source_filter},
+                )
+            else:
+                results = self.collection.query(
+                    query_embeddings=[query_embedding],
+                    n_results=top_k,
+                )
+
+        except Exception:
+            # Fallback nếu version Chroma không xử lý where ổn.
+            n_results = min(
+                max(top_k * 10, 20),
+                max(self.collection.count(), 1),
+            )
+
+            results = self.collection.query(
+                query_embeddings=[query_embedding],
+                n_results=n_results,
+            )
 
         retrieved = []
 
@@ -100,18 +130,24 @@ class VectorStore:
         metas = results.get("metadatas", [[]])[0]
         distances = results.get("distances", [[]])[0]
 
-        for idx, (doc, meta, distance) in enumerate(
-            zip(docs, metas, distances),
-            start=1,
-        ):
+        for doc, meta, distance in zip(docs, metas, distances):
+            if not meta:
+                continue
+
+            if source_filter and meta.get("source") != source_filter:
+                continue
+
             retrieved.append({
-                "ref_id": idx,
+                "ref_id": len(retrieved) + 1,
                 "text": doc,
                 "source": meta["source"],
                 "page": meta["page"],
                 "chunk_id": meta["chunk_id"],
                 "distance": float(distance),
             })
+
+            if len(retrieved) >= top_k:
+                break
 
         return retrieved
 

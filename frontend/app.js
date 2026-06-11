@@ -6,7 +6,9 @@ const state = {
     selectedModel: localStorage.getItem("vietmind-model") || "qwen3:4b",
     availableModels: [],
     selectedFile: null,
+    selectedSource: localStorage.getItem("vietmind-selected-source") || null,
     isAsking: false,
+    abortController: null,
 };
 
 const els = {
@@ -28,8 +30,12 @@ const els = {
     chunkCount: document.getElementById("chunkCount"),
     documentsList: document.getElementById("documentsList"),
 
+    runEvalBtn: document.getElementById("runEvalBtn"),
+    evaluationPanel: document.getElementById("evaluationPanel"),
+
     resetBtn: document.getElementById("resetBtn"),
 
+    selectedDocLabel: document.getElementById("selectedDocLabel"),
     emptyState: document.getElementById("emptyState"),
     messages: document.getElementById("messages"),
     chatArea: document.getElementById("chatArea"),
@@ -103,14 +109,24 @@ function bindEvents() {
 
     els.resetBtn.addEventListener("click", resetKnowledgeBase);
 
+    els.runEvalBtn.addEventListener("click", runRetrievalEvaluation);
+
     els.sendBtn.addEventListener("click", () => {
+        if (state.isAsking) {
+            stopGeneration();
+            return;
+        }
+
         submitCurrentMessage();
     });
 
     els.messageInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            submitCurrentMessage();
+
+            if (!state.isAsking) {
+                submitCurrentMessage();
+            }
         }
     });
 
@@ -133,17 +149,41 @@ function autoResizeTextarea() {
 
 function updateInputState() {
     const hasDocuments = state.documents.length > 0;
+    const hasSelectedSource = Boolean(state.selectedSource);
 
-    els.messageInput.disabled = !hasDocuments;
-    els.sendBtn.disabled = !hasDocuments;
+    els.messageInput.disabled = !hasDocuments || !hasSelectedSource;
+    els.sendBtn.disabled = !hasDocuments || !hasSelectedSource;
+    els.runEvalBtn.disabled = !hasDocuments || !hasSelectedSource;
 
     els.messageInput.placeholder = hasDocuments
-        ? "Nhắn tin cho VietMind-RAG..."
+        ? hasSelectedSource
+            ? `Đang hỏi trong: ${state.selectedSource}`
+            : "Chọn một tài liệu trong Knowledge Base trước khi hỏi..."
         : "Upload và index tài liệu trước khi hỏi...";
 
     document.querySelectorAll(".prompt-card").forEach((button) => {
-        button.disabled = !hasDocuments;
+        button.disabled = !hasDocuments || !hasSelectedSource;
     });
+
+    updateSelectedDocLabel();
+}
+
+function updateSelectedDocLabel() {
+    if (state.selectedSource) {
+        els.selectedDocLabel.textContent = `Đang hỏi trong: ${state.selectedSource}`;
+    } else {
+        els.selectedDocLabel.textContent = "Chưa chọn tài liệu";
+    }
+}
+
+function setSelectedSource(source) {
+    state.selectedSource = source;
+    localStorage.setItem("vietmind-selected-source", source);
+
+    renderDocuments();
+    updateInputState();
+
+    showToast(`Đã chọn tài liệu: ${source}`, "success");
 }
 
 async function loadModels() {
@@ -214,6 +254,23 @@ async function loadDocuments() {
         state.documents = data.documents || [];
         state.totalChunks = data.total_chunks || 0;
 
+        if (state.documents.length > 0) {
+            const stillExists = state.documents.some(
+                (doc) => doc.source === state.selectedSource
+            );
+
+            if (!state.selectedSource || !stillExists) {
+                state.selectedSource = state.documents[0].source;
+                localStorage.setItem(
+                    "vietmind-selected-source",
+                    state.selectedSource
+                );
+            }
+        } else {
+            state.selectedSource = null;
+            localStorage.removeItem("vietmind-selected-source");
+        }
+
         renderDocuments();
         updateInputState();
         updateEmptyState();
@@ -239,12 +296,20 @@ function renderDocuments() {
 
     els.documentsList.innerHTML = state.documents
         .map((doc) => {
+            const isSelected = doc.source === state.selectedSource;
+
             return `
-                <div class="document-item">
+                <div
+                    class="document-item ${isSelected ? "selected" : ""}"
+                    data-source="${escapeHTML(doc.source)}"
+                >
                     <div class="document-name">${escapeHTML(doc.source)}</div>
                     <div class="document-meta">
                         ${doc.num_chunks} chunks · ${doc.num_pages} pages/sections
                     </div>
+
+                    ${isSelected ? `<div class="selected-badge">Đang được chọn</div>` : ""}
+
                     <button
                         class="delete-doc-btn"
                         data-source="${escapeHTML(doc.source)}"
@@ -256,8 +321,21 @@ function renderDocuments() {
         })
         .join("");
 
+    document.querySelectorAll(".document-item").forEach((item) => {
+        item.addEventListener("click", (event) => {
+            if (event.target.classList.contains("delete-doc-btn")) {
+                return;
+            }
+
+            const source = item.dataset.source;
+            setSelectedSource(source);
+        });
+    });
+
     document.querySelectorAll(".delete-doc-btn").forEach((button) => {
-        button.addEventListener("click", () => {
+        button.addEventListener("click", (event) => {
+            event.stopPropagation();
+
             const source = button.dataset.source;
             deleteDocument(source);
         });
@@ -294,6 +372,9 @@ async function uploadSelectedFile() {
         els.fileInput.value = "";
         els.fileLabel.textContent = "Chọn PDF, TXT hoặc DOCX";
 
+        state.selectedSource = data.filename;
+        localStorage.setItem("vietmind-selected-source", data.filename);
+
         await loadDocuments();
     } catch (error) {
         console.error(error);
@@ -322,6 +403,11 @@ async function deleteDocument(source) {
             throw new Error(await response.text());
         }
 
+        if (state.selectedSource === source) {
+            state.selectedSource = null;
+            localStorage.removeItem("vietmind-selected-source");
+        }
+
         showToast("Đã xóa tài liệu.", "success");
         await loadDocuments();
     } catch (error) {
@@ -347,7 +433,11 @@ async function resetKnowledgeBase() {
         }
 
         state.messages = [];
+        state.selectedSource = null;
+        localStorage.removeItem("vietmind-selected-source");
+
         renderMessages();
+        hideEvaluationPanel();
 
         showToast("Đã reset Knowledge Base.", "success");
         await loadDocuments();
@@ -368,9 +458,36 @@ function submitCurrentMessage() {
     ask(question);
 }
 
+function stopGeneration() {
+    if (state.abortController) {
+        state.abortController.abort();
+    }
+
+    state.isAsking = false;
+    setSendButtonMode("send");
+    showToast("Đã dừng request hiện tại.", "success");
+}
+
+function setSendButtonMode(mode) {
+    if (mode === "stop") {
+        els.sendBtn.classList.add("stop");
+        els.sendBtn.textContent = "■";
+        els.sendBtn.disabled = false;
+    } else {
+        els.sendBtn.classList.remove("stop");
+        els.sendBtn.textContent = "➤";
+        updateInputState();
+    }
+}
+
 async function ask(question) {
     if (state.documents.length === 0) {
         showToast("Hãy upload và index tài liệu trước.", "error");
+        return;
+    }
+
+    if (!state.selectedSource) {
+        showToast("Hãy chọn một tài liệu trong Knowledge Base trước.", "error");
         return;
     }
 
@@ -382,7 +499,8 @@ async function ask(question) {
     const typingId = addTypingMessage();
 
     state.isAsking = true;
-    els.sendBtn.disabled = true;
+    state.abortController = new AbortController();
+    setSendButtonMode("stop");
 
     const start = performance.now();
 
@@ -392,15 +510,24 @@ async function ask(question) {
             headers: {
                 "Content-Type": "application/json",
             },
+            signal: state.abortController.signal,
             body: JSON.stringify({
                 question,
                 top_k: state.topK,
                 model: state.selectedModel,
+                source: state.selectedSource,
             }),
         });
 
         if (!response.ok) {
-            throw new Error(await response.text());
+            const errorText = await response.text();
+
+            try {
+                const errorJson = JSON.parse(errorText);
+                throw new Error(errorJson.detail || errorText);
+            } catch {
+                throw new Error(errorText);
+            }
         }
 
         const data = await response.json();
@@ -414,21 +541,190 @@ async function ask(question) {
             sources: data.sources || [],
             elapsed,
             model: data.model || state.selectedModel,
+            selectedSource: data.selected_source || state.selectedSource,
         });
     } catch (error) {
-        console.error(error);
-
         removeMessageById(typingId);
 
-        addMessage({
-            role: "assistant",
-            content: "Đã xảy ra lỗi khi gọi backend hoặc LLM. Hãy kiểm tra FastAPI và Ollama.",
-            sources: [],
-        });
+        if (error.name === "AbortError") {
+            addMessage({
+                role: "assistant",
+                content: "Đã tạm dừng câu trả lời.",
+                sources: [],
+            });
+        } else {
+            console.error(error);
+
+            addMessage({
+                role: "assistant",
+                content: `Đã xảy ra lỗi:\n\n${error.message}`,
+                sources: [],
+            });
+        }
     } finally {
         state.isAsking = false;
-        els.sendBtn.disabled = false;
+        state.abortController = null;
+        setSendButtonMode("send");
     }
+}
+
+async function runRetrievalEvaluation() {
+    if (!state.selectedSource) {
+        showToast("Hãy chọn một tài liệu trước khi evaluation.", "error");
+        return;
+    }
+
+    els.runEvalBtn.disabled = true;
+    els.runEvalBtn.textContent = "Evaluating...";
+
+    try {
+        const response = await fetch("/evaluate/retrieval", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                top_k: state.topK,
+                test_file: "evaluation/test_questions.json",
+                selected_source: state.selectedSource,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+
+            try {
+                const errorJson = JSON.parse(errorText);
+                throw new Error(errorJson.detail || errorText);
+            } catch {
+                throw new Error(errorText);
+            }
+        }
+
+        const report = await response.json();
+
+        renderEvaluationPanel(report);
+        showToast("Evaluation completed.", "success");
+    } catch (error) {
+        console.error(error);
+        showToast(`Evaluation lỗi: ${error.message}`, "error");
+    } finally {
+        els.runEvalBtn.textContent = "Run retrieval evaluation";
+        updateInputState();
+    }
+}
+
+function renderEvaluationPanel(report) {
+    const metrics = report.metrics || {};
+    const results = report.results || [];
+
+    const hitAtK = formatNumber(metrics.hit_at_k);
+    const mrr = formatNumber(metrics.mrr);
+    const latency = formatNumber(metrics.avg_latency_ms);
+    const total = metrics.total_questions ?? 0;
+
+    const resultsHTML = results
+        .map((item) => {
+            const statusClass = item.hit ? "hit" : "miss";
+            const statusText = item.hit ? "✅ HIT" : "❌ MISS";
+
+            const retrievedHTML = (item.retrieved || [])
+                .slice(0, 3)
+                .map((retrieved) => {
+                    return `
+                        <div class="eval-small">
+                            Rank ${escapeHTML(String(retrieved.rank))}: 
+                            ${escapeHTML(retrieved.source)} · page ${escapeHTML(String(retrieved.page))}
+                            · distance ${formatNumber(retrieved.distance)}
+                        </div>
+                    `;
+                })
+                .join("");
+
+            return `
+                <div class="eval-result-item ${statusClass}">
+                    <div class="eval-result-title">
+                        <span>${escapeHTML(item.id || "")}</span>
+                        <span class="eval-status ${statusClass}">${statusText}</span>
+                    </div>
+
+                    <div class="eval-question">
+                        ${escapeHTML(item.question)}
+                    </div>
+
+                    <div class="eval-small">
+                        Expected source: ${escapeHTML(item.expected_source)}
+                    </div>
+
+                    <div class="eval-small">
+                        Expected pages: ${escapeHTML(JSON.stringify(item.expected_pages || []))}
+                    </div>
+
+                    <div class="eval-small">
+                        First match rank: ${escapeHTML(String(item.first_match_rank ?? "N/A"))}
+                        · Latency: ${formatNumber(item.latency_ms)} ms
+                    </div>
+
+                    <div style="margin-top: 8px;">
+                        ${retrievedHTML}
+                    </div>
+                </div>
+            `;
+        })
+        .join("");
+
+    els.evaluationPanel.innerHTML = `
+        <div class="evaluation-header">
+            <div>
+                <h3>Retrieval Evaluation</h3>
+                <p>
+                    Tài liệu đang đánh giá:
+                    <strong>${escapeHTML(metrics.selected_source || state.selectedSource)}</strong>
+                </p>
+            </div>
+
+            <button class="eval-close-btn" id="closeEvalBtn">×</button>
+        </div>
+
+        <div class="eval-metrics">
+            <div class="eval-metric-card">
+                <span>Total Questions</span>
+                <strong>${total}</strong>
+            </div>
+
+            <div class="eval-metric-card">
+                <span>Hit@K</span>
+                <strong>${hitAtK}</strong>
+            </div>
+
+            <div class="eval-metric-card">
+                <span>MRR</span>
+                <strong>${mrr}</strong>
+            </div>
+
+            <div class="eval-metric-card">
+                <span>Avg Latency</span>
+                <strong>${latency}ms</strong>
+            </div>
+        </div>
+
+        <div class="eval-results">
+            ${resultsHTML}
+        </div>
+    `;
+
+    els.evaluationPanel.classList.remove("hidden");
+
+    document.getElementById("closeEvalBtn").addEventListener("click", () => {
+        hideEvaluationPanel();
+    });
+
+    els.chatArea.scrollTop = 0;
+}
+
+function hideEvaluationPanel() {
+    els.evaluationPanel.classList.add("hidden");
+    els.evaluationPanel.innerHTML = "";
 }
 
 function addMessage(message) {
@@ -474,7 +770,7 @@ function renderMessages() {
 
 function renderMessage(message) {
     const roleClass = message.role === "user" ? "user" : "assistant";
-    const avatar = message.role === "user" ? "U" : "AI";
+    const avatar = message.role === "user" ? "You" : "AI";
 
     if (message.content === "__typing__") {
         return `
@@ -497,8 +793,12 @@ function renderMessage(message) {
         ? ` · Model: ${escapeHTML(message.model)}`
         : "";
 
+    const sourceMeta = message.selectedSource
+        ? ` · Source: ${escapeHTML(message.selectedSource)}`
+        : "";
+
     const meta = message.elapsed
-        ? `<div class="message-meta">⏱️ ${message.elapsed.toFixed(2)}s${modelMeta}</div>`
+        ? `<div class="message-meta">⏱️ ${message.elapsed.toFixed(2)}s${modelMeta}${sourceMeta}</div>`
         : "";
 
     const sourcesHTML =
@@ -589,6 +889,22 @@ function escapeHTML(value) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+}
+
+function formatNumber(value) {
+    if (value === null || value === undefined) {
+        return "N/A";
+    }
+
+    const numberValue = Number(value);
+
+    if (Number.isNaN(numberValue)) {
+        return String(value);
+    }
+
+    return Number.isInteger(numberValue)
+        ? String(numberValue)
+        : numberValue.toFixed(4);
 }
 
 function showToast(message, type = "success") {
